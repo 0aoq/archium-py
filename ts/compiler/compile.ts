@@ -247,6 +247,17 @@ export default function Compile(
                                 .replaceAll("`", "'")
                                 .replaceAll("${", "{")}`;
 
+                        // handle ArrayExpression
+                        if (_var.init.type === "ArrayExpression")
+                            _var.init.raw = results[0].substring(
+                                _var.init.start,
+                                _var.init.end
+                            );
+
+                        // handle UnaryExpression
+                        if (_var.init.type === "UnaryExpression")
+                            _var.init.raw = "-" + _var.init.argument.raw;
+
                         // add to python result
                         res += `${"    ".repeat(bodyIndentIndex)}${
                             _var.id.name
@@ -450,7 +461,75 @@ export default function Compile(
 
                         break;
 
+                    // for statements
+                    case "ForStatement":
+                        // for statement includes 4 parts:
+                        //     init: this creates the variable we're incrementing, holds start value [1]
+                        //     test: this will hold value we're going to stop at, will be in test.right.raw [2]
+                        //     update: how much we're increasing by, if operator = "++" we're increasing by 1 [3]
+                        //     body: the code that needs to run every time [4]
+                        // the use of parseBody means we need to increment the bodyIndentIndex [5]
+
+                        // get start value, refer to [1]
+                        const fs_start_id = (node as any).init.declarations[0]
+                            .id.name;
+                        const fs_start = (node as any).init.declarations[0].init
+                            .raw;
+
+                        // get end value, refer to [2]
+                        const fs_end =
+                            (node as any).test.right.raw ||
+                            "-" + (node as any).test.right.argument.raw; // <- UnaryExpression, negative number
+
+                        // get update value, refer to [3]
+                        const fs_update =
+                            (node as any).update.operator === "++"
+                                ? "1"
+                                : (node as any).update.operator === "--"
+                                ? "-1"
+                                : (node as any).update.right.raw;
+
+                        // get body, refer to [4] and [5]
+                        bodyIndentIndex++;
+                        const fs_body = parseBody((node as any).body.body);
+                        bodyIndentIndex--;
+
+                        // join and add to res
+                        res += `${"    ".repeat(
+                            bodyIndentIndex
+                        )}for ${fs_start_id} in range(${fs_start}, ${fs_end}, ${fs_update}):\n${fs_body}\n`;
+
+                        break;
+
+                    case "ForInStatement":
+                        // for in statement includes 3 parts:
+                        //     left: left side of the operation [1]
+                        //     right: right side of the operation [2]
+                        //     body: the code that needs to run every time [3]
+                        // the use of parseBody means we need to increment the bodyIndentIndex [4]
+
+                        // we're basically just declaring a variable in the left side,
+                        // so left.declarations[0].id.name works to get that
+                        // refer to [1] and [2]
+                        const fis_query = `${
+                            (node as any).left.declarations[0].id.name
+                        } in ${(node as any).right.name}`;
+
+                        // get body
+                        // refer to [3]
+                        bodyIndentIndex++;
+                        const fis_body = parseBody((node as any).body.body);
+                        bodyIndentIndex--;
+
+                        // join them and add
+                        res += `${"    ".repeat(
+                            bodyIndentIndex
+                        )}for ${fis_query}:\n${fis_body}\n`;
+
+                        break;
+
                     default:
+                        // log anything we don't understand
                         console.log(node);
                         break;
                 }
