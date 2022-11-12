@@ -12,6 +12,13 @@
         "outDir": "lib/",
         "types": [
             "node"
-        ]
-    }
+        ],
+        "paths": {
+            "pylib": ["./@archium/pylib"]
+        }
+    },
+    "exclude": [
+        "./@archium",
+        "./lib"
+    ]
 }

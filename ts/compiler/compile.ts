@@ -4,6 +4,7 @@
  * @license MIT
  */
 
+import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -11,6 +12,8 @@ import { Node, parse } from "acorn";
 import ts from "typescript";
 
 import CompileTypeScript from "./tsc.js";
+
+const pylibFunctions = ["withStatement"]; // functions exported by pylib
 
 /**
  * @function Compile
@@ -27,12 +30,30 @@ export default function Compile(
         let bodyIndentIndex = 0;
 
         // compile ts
-        const results = CompileTypeScript([inputPath], {
-            noEmitOnError: true,
-            noImplicitAny: true,
-            target: ts.ScriptTarget.ES2022,
-            module: ts.ModuleKind.ES2022,
-        });
+        fs.mkdirSync("@archium/tempjs"); // create temp javascript store
+
+        const fID = crypto.randomUUID();
+        fs.writeFileSync(
+            // clone file but replace pylib imports
+            `@archium/tempjs/temp-${fID}.ts`,
+            fs
+                .readFileSync(inputPath)
+                .toString()
+                .replaceAll('import py from "pylib"', "")
+                .replaceAll('import pylib from "pylib"', "")
+                .replaceAll("py.", "")
+                .replaceAll(".pylib", "")
+        );
+
+        const results = CompileTypeScript(
+            [path.resolve("@archium/tempjs", `temp-${fID}.ts`)], // <- compile this temp file!
+            {
+                target: ts.ScriptTarget.ES2022,
+                module: ts.ModuleKind.ES2022,
+            }
+        );
+
+        fs.rmSync("@archium/tempjs", { recursive: true }); // <- remove tempjs folder!
 
         // store compilation result
         let py = "";
@@ -95,7 +116,45 @@ export default function Compile(
                         const expression = (node as any).expression;
                         switch (expression.type) {
                             case "CallExpression":
+                                // if calling a pylib function, parse into something else
+                                let pylib = false;
+                                if (
+                                    expression.callee &&
+                                    expression.callee.name &&
+                                    pylibFunctions.includes(
+                                        expression.callee.name
+                                    )
+                                )
+                                    // handle functions
+                                    pylib = true;
+                                    switch (expression.callee.name) {
+                                        case "withStatement":
+                                            const __indent = "    ".repeat(
+                                                bodyIndentIndex
+                                            );
+
+                                            // first param: input variable
+                                            // second param: output variable
+                                            // third param: callback function, parse this!
+                                            bodyIndentIndex++;
+                                            res += `${__indent}with ${
+                                                expression.arguments[0].name
+                                            } as ${
+                                                expression.arguments[1].name
+                                            }:\n${parseBody(
+                                                expression.arguments[2].body
+                                                    .body
+                                            )}`;
+                                            bodyIndentIndex--;
+
+                                            break;
+
+                                        default:
+                                            break;
+                                    }
+
                                 // grab from source and hope it works...
+                                if (pylib) break;
                                 res += `${"    ".repeat(
                                     bodyIndentIndex
                                 )}${results[0].substring(
@@ -131,16 +190,19 @@ export default function Compile(
                         const _var = (node as any).declarations[0];
 
                         // collect arguments if callee
-                        let _var_args = "";
+                        let _var_args: string | undefined = "";
 
-                        if (_var.init.arguments)
-                            for (let _vx of _var.init.arguments)
-                                _var_args += `${_vx.raw}`;
+                        if (_var.init)
+                            if (_var.init.arguments)
+                                for (let _vx of _var.init.arguments)
+                                    _var_args += `${_vx.raw}`;
+                            else undefined;
+                        else _var_args = undefined;
 
                         // add to python result
                         res += `${_var.id.name} = ${
                             // raw value OR function/class name
-                            _var.init.raw ||
+                            (_var.init || { raw: "None" }).raw ||
                             `${_var.init.callee.name}(${_var_args})`
                         }\n`;
 
@@ -235,6 +297,9 @@ export default function Compile(
                     case "ImportDeclaration":
                         const imported = (node as any).specifiers; // what are we importing?
 
+                        // ignore pylib imports
+                        if ((node as any).source.value.includes("pylib")) break;
+
                         // import declaration data
                         let imp_dec = {
                             specifiersString: "", // argument like string for imports
@@ -285,7 +350,10 @@ export default function Compile(
             .replaceAll("false", "False")
             // functions
             .replaceAll("console.log", "print")
-            .replaceAll("this", "self");
+            .replaceAll("this", "self")
+            // null
+            .replaceAll("null", "None")
+            .replaceAll("undefined", "None");
 
         // return result
         resolve([py, js]);
