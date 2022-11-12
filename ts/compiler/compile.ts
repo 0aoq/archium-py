@@ -233,14 +233,22 @@ export default function Compile(
 
                     // import statement
                     case "ImportDeclaration":
-                        const imported = (node as any).specifiers;
+                        const imported = (node as any).specifiers; // what are we importing?
+
+                        // import declaration data
                         let imp_dec = {
-                            specifiersString: "",
+                            specifiersString: "", // argument like string for imports
+                            named: true, // default to named, change to false on ImportNamespaceSpecifier
                         };
 
                         // gather imports
-                        for (let _import of imported)
-                            if (
+                        for (let _import of imported) {
+                            if (_import.type === "ImportNamespaceSpecifier") {
+                                // import all
+                                imp_dec.specifiersString = _import.local.name;
+                                imp_dec.named = false;
+                            } else if (
+                                // import named
                                 imported.indexOf(_import) !==
                                 imported.length - 1
                             )
@@ -248,13 +256,17 @@ export default function Compile(
                             else
                                 imp_dec.specifiersString +=
                                     _import.imported.name;
+                        }
 
                         // add imports
-                        // TODO: Add support for importing entire module
-                        res += `from ${(node as any).source.value.replaceAll(
-                            "./",
-                            ""
-                        )} import ${imp_dec.specifiersString}\n`;
+                        if (imp_dec.named)
+                            // named
+                            res += `from ${(
+                                node as any
+                            ).source.value.replaceAll("./", "")} import ${
+                                imp_dec.specifiersString
+                            }\n`;
+                        else res += `import ${imp_dec.specifiersString}\n`; // all
 
                         break;
 

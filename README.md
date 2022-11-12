@@ -1,3 +1,3 @@
 # archium-py
 
-Outline: https://www.oxvs.net/archive/*/@archium#file:/files/archium-py/outline.md
+Outline and implementation status: https://www.oxvs.net/archive/*/@archium#file:/files/archium-py/outline.md

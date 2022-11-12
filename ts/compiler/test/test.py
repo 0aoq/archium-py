@@ -1,2 +1,2 @@
-from testm import a, b
-print(a, b)
+import test
+print(test.a, test.b)
