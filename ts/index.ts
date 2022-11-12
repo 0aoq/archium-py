@@ -39,12 +39,16 @@ ${"━".repeat(process.stdout.columns / 2)}`);
     // compile
     Compile([path.resolve(process.cwd(), config.compilerOptions.entry)]).then(
         () => {
-            console.log(`${"━".repeat(process.stdout.columns / 2)}\n\u{25FD} \x1b[92mFinished!\x1b[0m`);
+            console.log(
+                `${"━".repeat(
+                    process.stdout.columns / 2
+                )}\n\u{25FD} \x1b[92mFinished!\x1b[0m`
+            );
         }
     );
 } else {
     console.log(
-        `[Error] \x1b[93m\u{1F50D} Entry file not specified! Please make sure your project includes a \"apyconfig.json\" file:
+        `[Error] \x1b[93m\u{1F50D} Entry file not specified! Please make sure your project includes an "apyconfig.json" file:
 \x1b[90m{
     "compilerOptions": {
         "entry": "path/to/entry/file.ts"       
