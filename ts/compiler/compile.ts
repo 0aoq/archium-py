@@ -248,7 +248,9 @@ export default function Compile(
                                 .replaceAll("${", "{")}`;
 
                         // add to python result
-                        res += `${_var.id.name} = ${
+                        res += `${"    ".repeat(bodyIndentIndex)}${
+                            _var.id.name
+                        } = ${
                             // raw value OR function/class name
                             (_var.init || { raw: "None" }).raw ||
                             `${_var.init.callee.name}(${_var_args})`
@@ -383,6 +385,71 @@ export default function Compile(
 
                         break;
 
+                    // IfStatement
+                    case "IfStatement":
+                        // if statement includes 3 parts:
+                        //     test: what we are evaluating, we can use substring to get this [1]
+                        //     consequent: what happens after, we can use parseBody() on this! [2]
+                        //     alternate: may not always be present, could be "else if" or just "else" [3]
+                        // the use of parseBody means we need to increment the bodyIndentIndex [4]
+                        function if_compute(n: any) {
+                            let if_res = "";
+                            const if_test = results[0].substring(
+                                // ^ refer to [1]
+                                n.test.start,
+                                n.test.end
+                            );
+
+                            bodyIndentIndex++; // <- refer to [3]
+
+                            const if_consequent = parseBody(
+                                // ^ refer to [2]
+                                n.consequent.body
+                            );
+
+                            bodyIndentIndex--; // <- refer to [4]
+
+                            // compute alternate
+                            // refer to [3]
+                            let if_alternate = "";
+
+                            if (n.alternate) {
+                                // if alternate.type === "IfStatement", we need to run if_compute again
+                                // otherwise we'll figure it out it here...
+                                if (n.alternate.type === "IfStatement")
+                                    if_alternate += `${"    ".repeat(
+                                        bodyIndentIndex
+                                    )}el${if_compute(n.alternate)}`;
+                                else {
+                                    // ^ haha get it? we're looking at an "else" statement if we're here
+                                    const __indent = "    ".repeat(
+                                        // ^ initial indent, we've done this before
+                                        bodyIndentIndex
+                                    );
+
+                                    bodyIndentIndex++; // we're increasing this because we need to do parseBody again!
+
+                                    if_alternate += `${__indent}else:\n${parseBody(
+                                        n.alternate.body
+                                    )}`;
+
+                                    bodyIndentIndex--;
+                                }
+                            }
+
+                            // add to if_res, we're done!
+                            if_res += `if ${if_test}:\n${if_consequent}\n${if_alternate}`;
+
+                            return if_res;
+                        }
+
+                        // add full stack to res (+indent)
+                        res += `${"    ".repeat(bodyIndentIndex)}${if_compute(
+                            node
+                        )}`;
+
+                        break;
+
                     default:
                         console.log(node);
                         break;
@@ -401,7 +468,11 @@ export default function Compile(
             .replaceAll("this", "self")
             // null
             .replaceAll("null", "None")
-            .replaceAll("undefined", "None");
+            .replaceAll("undefined", "None")
+            // bad operators
+            .replaceAll("===", "==")
+            .replaceAll("++", " += 1")
+            .replaceAll("--", " -= 1");
 
         // return result
         resolve([py, js]);
