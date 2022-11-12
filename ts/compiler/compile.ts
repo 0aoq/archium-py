@@ -127,40 +127,77 @@ export default function Compile(
                                 )
                                     // handle functions
                                     pylib = true;
-                                    switch (expression.callee.name) {
-                                        case "withStatement":
-                                            const __indent = "    ".repeat(
-                                                bodyIndentIndex
-                                            );
+                                switch (expression.callee.name) {
+                                    case "withStatement":
+                                        const __indent = "    ".repeat(
+                                            bodyIndentIndex
+                                        );
 
-                                            // first param: input variable
-                                            // second param: output variable
-                                            // third param: callback function, parse this!
-                                            bodyIndentIndex++;
-                                            res += `${__indent}with ${
-                                                expression.arguments[0].name
-                                            } as ${
-                                                expression.arguments[1].name
-                                            }:\n${parseBody(
-                                                expression.arguments[2].body
-                                                    .body
-                                            )}`;
-                                            bodyIndentIndex--;
+                                        // first param: input variable
+                                        // second param: output variable
+                                        // third param: callback function, parse this!
+                                        bodyIndentIndex++;
+                                        res += `${__indent}with ${
+                                            expression.arguments[0].name
+                                        } as ${
+                                            expression.arguments[1].name
+                                        }:\n${parseBody(
+                                            expression.arguments[2].body.body
+                                        )}`;
+                                        bodyIndentIndex--;
 
-                                            break;
+                                        break;
 
-                                        default:
-                                            break;
-                                    }
+                                    default:
+                                        break;
+                                }
 
                                 // grab from source and hope it works...
                                 if (pylib) break;
-                                res += `${"    ".repeat(
-                                    bodyIndentIndex
-                                )}${results[0].substring(
+                                const ce_piece = results[0].substring(
+                                    // <- get the stuff we're working on
                                     expression.start,
                                     expression.end
-                                )}\n`;
+                                );
+
+                                const ce_tree = parse(ce_piece, {
+                                    // ^ parse this call expression individually
+                                    ecmaVersion: "latest",
+                                });
+
+                                const _expression = (ce_tree as any).body[0] // <- store the expression
+                                    .expression;
+
+                                const ce_func = ce_piece.substring(
+                                    // ^ get the function we're calling
+                                    // we're doing substring from the entire line we're working on,
+                                    // _expression.callee holds the start and end of the function
+                                    // call string, we need that!
+                                    _expression.callee.start,
+                                    _expression.callee.end
+                                );
+
+                                let ce_content = ce_piece.substring(
+                                    // ^ create content variable
+                                    (_expression.arguments[0] || { start: 0 })
+                                        .start,
+                                    (_expression.arguments[0] || { end: 0 }).end
+                                    // we did (v || 0) for both because that would make the value empty!!!
+                                );
+
+                                // if the content starts with `, handle the TemplateLiteral
+                                if (ce_content.startsWith("`"))
+                                    // make the string start with f'
+                                    // replace ` with '
+                                    // replace ${ with {
+                                    ce_content = `f${ce_content
+                                        .replaceAll("`", "'")
+                                        .replaceAll("${", "{")}`;
+
+                                // add to res
+                                res += `${"    ".repeat(
+                                    bodyIndentIndex
+                                )}${ce_func}(${ce_content})\n`; // <- join ce_func and ce_content
 
                                 break;
 
@@ -198,6 +235,17 @@ export default function Compile(
                                     _var_args += `${_vx.raw}`;
                             else undefined;
                         else _var_args = undefined;
+
+                        // handle TemplateLiteral
+                        if (_var.init.type === "TemplateLiteral")
+                            // use substring to get the piece of code
+                            // make the string start with f'
+                            // replace ` with '
+                            // replace ${ with {
+                            _var.init.raw = `f${results[0]
+                                .substring(_var.init.start, _var.init.end)
+                                .replaceAll("`", "'")
+                                .replaceAll("${", "{")}`;
 
                         // add to python result
                         res += `${_var.id.name} = ${
