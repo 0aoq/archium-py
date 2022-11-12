@@ -1,22 +1,23 @@
-function main(a: number, b: number): number {
-    function main1(c: number, d: number): number {
-        console.log("1", 2);
-        console.log("1", 2);
-        console.log(1, "2");
-        console.log(1, "2");
+class test {
+    a: string;
 
-        function main2(e: number, f: number): number {
-            console.log("3", 4);
-            console.log("3", 4);
-            console.log(3, "4");
-            console.log(3, "4");
-            return e + f;
-        }
-
-        return main2(c, d);
+    constructor(a: string) {
+        this.a = a;
+        console.log("aaa")
     }
 
-    return main1(a, b);
+    public method() {
+        return "Hello, world! " + this.a;
+    }   
 }
 
-console.log(main(5, 5));
+let t = new test("A");
+console.log(t.method());
+
+function add(a: number, b: number): number {
+    return a + b;
+}
+
+t = new test("B");
+
+console.log(add(5, 10))

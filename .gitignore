@@ -1,2 +1,4 @@
 node_modules/
 lib/
+
+ast.json

@@ -1,18 +1,18 @@
-def main(a, b):
-    def main1(c, d):
-        print("1", 2)
-        print("1", 2)
-        print(1, "2")
-        print(1, "2")
-        def main2(e, f):
-            print("3", 4)
-            print("3", 4)
-            print(3, "4")
-            print(3, "4")
-            return e + f;
+class test:
+    def __init__(self, a):
+        self.a = a
+        print("aaa")
 
-        return main2(c, d);
 
-    return main1(a, b);
+    def method(self, ):
+        return "Hello, world! " + self.a;
 
-print(main(5, 5))
+
+
+t = test("A")
+print(t.method())
+def add(a, b):
+    return a + b;
+
+t = test("B")
+print(add(5, 10))

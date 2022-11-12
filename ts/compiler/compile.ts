@@ -18,9 +18,11 @@ import CompileTypeScript from "./tsc.js";
  *
  * @export
  * @param {string} input
- * @returns {string}
+ * @returns {Promise<[string, { [key: string]: any }]>}
  */
-export default function Compile(inputPath: string): Promise<string> {
+export default function Compile(
+    inputPath: string
+): Promise<[string, { [key: string]: any }]> {
     return new Promise((resolve, reject) => {
         let bodyIndentIndex = 0;
 
@@ -28,7 +30,7 @@ export default function Compile(inputPath: string): Promise<string> {
         const results = CompileTypeScript([inputPath], {
             noEmitOnError: true,
             noImplicitAny: true,
-            target: ts.ScriptTarget.ES5,
+            target: ts.ScriptTarget.Latest,
             module: ts.ModuleKind.CommonJS,
         });
 
@@ -42,6 +44,8 @@ export default function Compile(inputPath: string): Promise<string> {
         });
 
         function parseBody(body: Node[]): string {
+            // for better understanding of an individual node, run the compiler and check "./ast.json" !!!
+
             let res = "";
 
             for (let node of body) {
@@ -71,8 +75,9 @@ export default function Compile(inputPath: string): Promise<string> {
 
                         bodyIndentIndex++; // increase index so function is indented properly
                         res += `${__indent}def ${
-                            (node as any).id.name
+                            (node as any).id.name // <- this is the function name!
                         }(${fd_args}):\n${parseBody((node as any).body.body)}`;
+                        bodyIndentIndex--; // all other nodes should get parsed before this line happens...
 
                         break;
 
@@ -81,7 +86,6 @@ export default function Compile(inputPath: string): Promise<string> {
                         res += `${"    ".repeat(
                             bodyIndentIndex
                         )}${results[0].substring(node.start, node.end)}\n\n`;
-                        bodyIndentIndex--;
 
                         break;
 
@@ -101,6 +105,20 @@ export default function Compile(inputPath: string): Promise<string> {
 
                                 break;
 
+                            case "AssignmentExpression":
+                                // grab from original source
+                                res += `${"    ".repeat(
+                                    bodyIndentIndex
+                                )}${results[0]
+                                    .substring(expression.start, expression.end)
+                                    .replaceAll(
+                                        // remove "new" so class reassignment works!
+                                        "new ",
+                                        ""
+                                    )}\n`;
+
+                                break;
+
                             default:
                                 break;
                         }
@@ -112,8 +130,104 @@ export default function Compile(inputPath: string): Promise<string> {
                         // get declaration
                         const _var = (node as any).declarations[0];
 
+                        // collect arguments if callee
+                        let _var_args = "";
+
+                        if (_var.init.arguments)
+                            for (let _vx of _var.init.arguments)
+                                _var_args += `${_vx.raw}`;
+
                         // add to python result
-                        res += `${_var.id.name} = ${_var.init.raw}\n`;
+                        res += `${_var.id.name} = ${
+                            // raw value OR function/class name
+                            _var.init.raw ||
+                            `${_var.init.callee.name}(${_var_args})`
+                        }\n`;
+
+                        break;
+
+                    // class declaration
+                    case "ClassDeclaration":
+                        const cd_name = (node as any).id.name;
+
+                        // parse body
+                        const cd_body = (node as any).body.body;
+                        let cd_indent = "    ".repeat(bodyIndentIndex);
+
+                        bodyIndentIndex++;
+                        let cd_dec = {
+                            classLine: `${cd_indent}class ${cd_name}`,
+                            constructorLine: undefined as any,
+                            methods: "",
+                        };
+
+                        for (let n of cd_body) {
+                            // make sure it is a MethodDefinition, not PropertyDefinition
+                            // python doesn't support those...
+                            if (n.type !== "MethodDefinition") continue;
+                            cd_indent = "    ".repeat(bodyIndentIndex);
+
+                            // handle node kind
+                            switch (n.kind) {
+                                case "constructor":
+                                    bodyIndentIndex++;
+
+                                    // collect arguments
+                                    const clc_params = (n.value as any).params;
+                                    let clc_args = "";
+
+                                    for (let argument of clc_params)
+                                        if (
+                                            clc_params.indexOf(argument) !==
+                                            clc_params.length - 1
+                                        )
+                                            clc_args += `${argument.name}, `;
+                                        else clc_args += argument.name;
+
+                                    // add to cd_dec
+                                    cd_dec.constructorLine = `${cd_indent}def __init__(self, ${clc_args}):\n${parseBody(
+                                        n.value.body.body
+                                    )}`;
+
+                                    // decrease bodyIndentIndex so things go back to normal!
+                                    bodyIndentIndex--;
+
+                                    break;
+
+                                case "method":
+                                    bodyIndentIndex++;
+
+                                    // collect arguments
+                                    const mtd_params = (n.value as any).params;
+                                    let mtd_args = "";
+
+                                    for (let argument of mtd_params)
+                                        if (
+                                            mtd_params.indexOf(argument) !==
+                                            mtd_params.length - 1
+                                        )
+                                            mtd_args += `${argument.name}, `;
+                                        else mtd_args += argument.name;
+
+                                    // add to cd_dec
+                                    cd_dec.methods += `${cd_indent}def ${
+                                        n.key.name
+                                    }(self, ${mtd_args}):\n${parseBody(
+                                        n.value.body.body
+                                    )}\n\n`;
+
+                                    // decrease bodyIndentIndex so things go back to normal!
+                                    bodyIndentIndex--;
+
+                                    break;
+
+                                default:
+                                    break;
+                            }
+                        }
+
+                        res += `${cd_dec.classLine}:\n${cd_dec.constructorLine}\n\n${cd_dec.methods}`;
+                        bodyIndentIndex--;
 
                         break;
 
@@ -131,10 +245,11 @@ export default function Compile(inputPath: string): Promise<string> {
             .replaceAll("true", "True")
             .replaceAll("false", "False")
             // functions
-            .replaceAll("console.log", "print");
+            .replaceAll("console.log", "print")
+            .replaceAll("this", "self");
 
         // return result
-        resolve(py);
+        resolve([py, js]);
 
         // save file
         fs.writeFileSync(
