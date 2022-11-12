@@ -30,8 +30,8 @@ export default function Compile(
         const results = CompileTypeScript([inputPath], {
             noEmitOnError: true,
             noImplicitAny: true,
-            target: ts.ScriptTarget.Latest,
-            module: ts.ModuleKind.CommonJS,
+            target: ts.ScriptTarget.ES2022,
+            module: ts.ModuleKind.ES2022,
         });
 
         // store compilation result
@@ -228,6 +228,33 @@ export default function Compile(
 
                         res += `${cd_dec.classLine}:\n${cd_dec.constructorLine}\n\n${cd_dec.methods}`;
                         bodyIndentIndex--;
+
+                        break;
+
+                    // import statement
+                    case "ImportDeclaration":
+                        const imported = (node as any).specifiers;
+                        let imp_dec = {
+                            specifiersString: "",
+                        };
+
+                        // gather imports
+                        for (let _import of imported)
+                            if (
+                                imported.indexOf(_import) !==
+                                imported.length - 1
+                            )
+                                imp_dec.specifiersString += `${_import.imported.name}, `;
+                            else
+                                imp_dec.specifiersString +=
+                                    _import.imported.name;
+
+                        // add imports
+                        // TODO: Add support for importing entire module
+                        res += `from ${(node as any).source.value.replaceAll(
+                            "./",
+                            ""
+                        )} import ${imp_dec.specifiersString}\n`;
 
                         break;
 
