@@ -1,6 +1,6 @@
 {
   "name": "archium-py",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Compile TypeScript to Python",
   "main": "lib/index.js",
   "scripts": {
@@ -8,8 +8,11 @@
     "watch": "npx tsc -w"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": {
+    "url": "https://github.com/0aoq",
+    "name": "0aoq"
+  },
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^18.11.0"
   },

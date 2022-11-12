@@ -15,7 +15,7 @@
         ],
         "paths": {
             "pylib": ["./@archium/pylib"]
-        }
+        },
     },
     "exclude": [
         "./@archium",

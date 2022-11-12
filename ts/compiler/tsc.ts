@@ -15,12 +15,12 @@ import ts from "typescript";
  * @export
  * @param {string[]} fileNames
  * @param {ts.CompilerOptions} options
- * @returns {string[]}
+ * @returns {Array<[string, string]>}
  */
 export default function CompileTypeScript(
     fileNames: string[],
     options: ts.CompilerOptions
-): string[] {
+): string[][] {
     options.outDir = "tempts";
 
     // https://github.com/Microsoft/TypeScript/wiki/Using-the-Compiler-API#a-minimal-compiler
@@ -59,7 +59,10 @@ export default function CompileTypeScript(
     let results = [];
 
     for (let file of fs.readdirSync("tempts")) {
-        results.push(fs.readFileSync(path.resolve("tempts", file)).toString());
+        results.push([
+            fs.readFileSync(path.resolve("tempts", file)).toString(),
+            path.resolve(file),
+        ]);
     }
 
     // remove tempts

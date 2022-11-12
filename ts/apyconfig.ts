@@ -6,12 +6,12 @@
 
 import fs from "node:fs";
 
-export let config = {};
+export let config: { [key: string]: any } = {};
 
 // attempt to load config from process.cwd
-if (fs.existsSync(`${process.cwd}/apyconfig.json`))
+if (fs.existsSync("apyconfig.json"))
     config = JSON.parse(
-        fs.readFileSync(`${process.cwd}/apyconfig.json`).toString()
+        fs.readFileSync("apyconfig.json").toString()
     );
 
 // default export
