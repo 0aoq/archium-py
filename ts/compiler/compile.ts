@@ -62,6 +62,23 @@ export default function Compile(inputPaths: string[]): Promise<void> {
             function parseBody(body: Node[]): string {
                 let res = "";
 
+                // check if body exists, if not we need to stop here!
+                if (!body) {
+                    // the most common cause for this is trying to parse something doesn't use braces.
+                    // TODO: implement the ability to parse something that doesn't use braces
+                    // ex:
+                    // for (let i = 0; i < 10; i++)
+                    //     console.log(i);
+                    // ^^ MAKE THAT WORK
+                    
+                    console.log(
+                        "\x1b[91m[ERROR]: Expected body type of Node[], but received undefined!\x1b[0m"
+                    );
+
+                    return "";
+                }
+
+                // parse body
                 for (let node of body) {
                     // handle different types
                     switch (node.type) {

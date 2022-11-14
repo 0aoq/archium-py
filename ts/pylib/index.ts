@@ -174,6 +174,17 @@ export function _eval(expression: string): number {
  */
 export function exec(object: any): any {}
 
+/**
+ * @function float
+ * @see https://docs.python.org/3/library/functions.html#float
+ *
+ * @param {string} input
+ * @returns {number} float
+ */
+export function float(input: string): number {
+    return 0;
+}
+
 // NOT IMPLEMENTED: https://docs.python.org/3/library/functions.html#filter
 
 /**
@@ -184,6 +195,17 @@ export function exec(object: any): any {}
  * @returns {any}
  */
 export function format(value: any): any {}
+
+/**
+ * @function int
+ * @see https://docs.python.org/3/library/functions.html#int
+ *
+ * @param {string} input
+ * @returns {number} int
+ */
+export function int(input: string): number {
+    return 0;
+}
 
 /**
  * @function len
@@ -218,6 +240,8 @@ export default {
     eval: _eval,
     _eval,
     exec,
+    float,
     format,
+    int,
     len,
 };

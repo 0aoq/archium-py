@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
-        "outDir": "@archium/out"
+        "outDir": "@archium/out",
+        "entry": "ts/test/index.ts"
     }
 }
