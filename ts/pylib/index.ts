@@ -197,6 +197,62 @@ export function float(input: string): number {
 export function format(value: any): any {}
 
 /**
+ * @function getattr
+ * @see https://docs.python.org/3/library/functions.html#getattr
+ *
+ * @param {any} object
+ * @param {string} name
+ * @returns {string | undefined}
+ */
+export function getattr(object: any, name: string): string | undefined {
+    return undefined;
+}
+
+/**
+ * @function globals
+ * @see https://docs.python.org/3/library/functions.html#globals
+ *
+ * @returns {Array<any>}
+ */
+export function globals(): Array<any> {
+    return [];
+}
+
+/**
+ * @function hasattr
+ * @see https://docs.python.org/3/library/functions.html#hasattr
+ *
+ * @param {any} object
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function hasattr(object: any, name: string): boolean {
+    return false;
+}
+
+/**
+ * @function hash
+ * @see https://docs.python.org/3/library/functions.html#hash
+ *
+ * @param {any} object
+ * @returns {string | undefined}
+ */
+export function hash(object: any): string | undefined {
+    return undefined;
+}
+
+/**
+ * @function hex
+ * @see https://docs.python.org/3/library/functions.html#hex
+ *
+ * @param {number} x
+ * @returns {number}
+ */
+export function hex(x: number): number {
+    return 0x000;
+}
+
+/**
  * @function int
  * @see https://docs.python.org/3/library/functions.html#int
  *
@@ -242,6 +298,11 @@ export default {
     exec,
     float,
     format,
+    getattr,
+    globals,
+    hasattr,
+    hash,
+    hex,
     int,
     len,
 };
