@@ -33,7 +33,7 @@ _Pylib_ is a library of functions and variables that allow you to use common Pyt
 
 It can be imported using the two ways below:
 
-```josn
+```json
 import pylib from "pylib";
 import py from "pylib";
 ```

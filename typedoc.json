@@ -1,0 +1,6 @@
+{
+    "entryPoints": [
+        "ts/pylib/index.ts",
+    ],
+    "out": "docs"
+}

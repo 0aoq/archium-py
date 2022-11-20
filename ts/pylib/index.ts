@@ -9,8 +9,8 @@
  * @description Create a Python with statement
  *
  * @export
- * @param {*} input with {{input}} as {{output}}
- * @param {*} output with {{input}} as {{output}}
+ * @param {any} input with [input] as [output]
+ * @param {any} output with [input] as [output]
  * @param {() => void} inner Everything inside the with statement
  */
 export function withStatement(
