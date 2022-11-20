@@ -13,7 +13,9 @@ import ts from "typescript";
 import CompileTypeScript from "./tsc.js";
 import config from "../apyconfig.js";
 
-const pylibFunctions = ["withStatement"]; // functions exported by pylib
+import { useSequenceExpression } from "./helpers.js";
+
+const pylibFunctions = ["withStatement", "named", "nv"]; // functions exported by pylib
 
 /**
  * @function Compile
@@ -70,7 +72,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                     // for (let i = 0; i < 10; i++)
                     //     console.log(i);
                     // ^^ MAKE THAT WORK
-                    
+
                     console.log(
                         "\x1b[91m[ERROR]: Expected body type of Node[], but received undefined!\x1b[0m"
                     );
@@ -168,7 +170,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                     // grab from source and hope it works...
                                     if (pylib) break;
                                     const ce_piece = result[0].substring(
-                                        // <- get the stuff we're working on
+                                        // ^ get the stuff we're working on
                                         expression.start,
                                         expression.end
                                     );
@@ -190,17 +192,85 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                         _expression.callee.end
                                     );
 
-                                    let ce_content = ce_piece.substring(
-                                        // ^ create content variable
-                                        (
-                                            _expression.arguments[0] || {
+                                    let ce_content = ce_piece
+                                        .substring(
+                                            // ^ create content variable
+                                            (
+                                                _expression || {
+                                                    start: 0,
+                                                }
+                                            ).start,
+                                            (_expression || { end: 0 }).end
+                                            // we did (v || 0) for both because that would make the value empty!!!
+                                        )
+                                        .split(`${ce_func}(`)[1] // <- get after function
+                                        .slice(0, -1); // <- remove close function paren
+
+                                    // attempt to parse the named variables thing below...
+                                    if (
+                                        ce_content.includes("nv") ||
+                                        ce_content.includes("named")
+                                    ) {
+                                        // if we're here, we know we're parsing a named variable.
+                                        const con_js = parse(ce_content, {
+                                            ecmaVersion: "latest",
+                                        });
+
+                                        /* RETURN EXAMPLE:
+                                            Node {
+                                                type: 'Program',
                                                 start: 0,
+                                                end: 17,
+                                                body: [
+                                                    Node {
+                                                        type: 'ExpressionStatement',
+                                                        start: 0,
+                                                        end: 17,
+                                                        expression: [Node] <- con_expr
+                                                    }
+                                                ],
+                                                sourceType: 'script'
                                             }
-                                        ).start,
-                                        (_expression.arguments[0] || { end: 0 })
-                                            .end
-                                        // we did (v || 0) for both because that would make the value empty!!!
-                                    );
+                                        */
+
+                                        // use useSequenceExpression to parse
+                                        let t_ce_content = ""; // <- we're going to store the temp ce_content here!
+
+                                        useSequenceExpression(
+                                            (con_js as any).body[0].expression,
+                                            (con_expr, i, total) => {
+                                                // con_expr = root.body[0].expression
+
+                                                // right now, we're only going to implement literal types
+                                                // maybe add the others later?
+                                                if (
+                                                    con_expr.arguments[0]
+                                                        .type !== "Literal" &&
+                                                    con_expr.arguments[1]
+                                                        .type !== "Literal"
+                                                )
+                                                    return "";
+
+                                                // aaaaand finish:
+                                                t_ce_content +=
+                                                    // set it to the named variable
+                                                    `${
+                                                        con_expr.arguments[0]
+                                                            .value
+                                                    }=${
+                                                        con_expr.arguments[1]
+                                                            .raw
+                                                    }${
+                                                        // only add ", " if this is the last argument
+                                                        i === total ? "" : ", "
+                                                    }`;
+                                            }
+                                        );
+
+                                        ce_content = t_ce_content; // set ce_content to temp_ce_content
+                                        // sooo this current configuration doesn't preserve arguments that
+                                        // aren't an expression... might need to be fixed later!
+                                    }
 
                                     // if the content starts with `, handle the TemplateLiteral
                                     if (ce_content.startsWith("`"))

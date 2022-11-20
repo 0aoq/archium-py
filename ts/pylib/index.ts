@@ -22,6 +22,22 @@ export function withStatement(
 }
 
 /**
+ * @function named
+ * @description Create a named variable (test(v=x))
+ * @alias nv
+ *
+ * @param {string} x name
+ * @param {any} y value
+ */
+export function named(x: string, y: any): any {
+    // Somewhere around compile.ts line 164
+}
+
+export const nv = named;
+
+// ...BUILT-IN PYTHON FUNCTIONS BELOW...
+
+/**
  * @function abs
  * @see https://docs.python.org/3/library/functions.html#abs
  *
@@ -264,6 +280,30 @@ export function int(input: string): number {
 }
 
 /**
+ * @function isinstance
+ * @see https://docs.python.org/3/library/functions.html#isinstance
+ *
+ * @param {any} object
+ * @returns {boolean}
+ */
+export function isinstance(object: any): boolean {
+    return true;
+}
+
+// NOT IMPLEMENTED: https://docs.python.org/3/library/functions.html#issubclass
+
+/**
+ * @function iter
+ * @see https://docs.python.org/3/library/functions.html#iter
+ *
+ * @param {any} object
+ * @returns {Iterable<any>}
+ */
+export function iter(object: any): Iterable<any> {
+    return [];
+}
+
+/**
  * @function len
  * @description Return the length of an object
  * @see https://docs.python.org/3/library/functions.html#len
@@ -275,12 +315,45 @@ export function len(input: any): number {
     return 0;
 }
 
-// ...
-export const pylibFunctions = ["withStatement"];
+// NOT IMPLEMENTED: https://docs.python.org/3/library/functions.html#locals
 
+/**
+ * @function map
+ * @see https://docs.python.org/3/library/functions.html#map
+ *
+ * @param {() => any} fn
+ * @param {Iterable<any>} iterable
+ * @.param {any} iterables
+ * @returns {Iterable<any>}
+ */
+export function map(fn: () => any, iterable: Iterable<any>): Iterable<any> {
+    return [];
+}
+
+/**
+ * @function min
+ * @see https://docs.python.org/3/library/functions.html#min
+ *
+ * @param {Iterable<any>} iterable
+ * @returns {any} smallest
+ */
+export function min(iterable: Iterable<any>): any {}
+
+/**
+ * @function next
+ * @see https://docs.python.org/3/library/functions.html#next
+ *
+ * @param {Iterable<any>} iterable
+ * @returns  {any}
+ */
+export function next(iterable: Iterable<any>): any {}
+
+// ...
 export default {
     withStatement,
-    pylibFunctions,
+
+    named,
+    nv,
 
     // https://docs.python.org/3/library/functions.html
     abs,
@@ -304,5 +377,10 @@ export default {
     hash,
     hex,
     int,
+    isinstance,
+    iter,
     len,
+    map,
+    min,
+    next,
 };
