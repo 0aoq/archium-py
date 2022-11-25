@@ -13,13 +13,66 @@ import ts from "typescript";
 import CompileTypeScript from "./tsc.js";
 import config from "../apyconfig.js";
 
-import { useSequenceExpression } from "./helpers.js";
+import helpers, { useSequenceExpression } from "./helpers.js";
 
 const pylibFunctions = ["withStatement", "named", "nv"]; // functions exported by pylib
 
+/** @type ArchiumGrammar */
+export type ArchiumGrammar = {
+    func: {
+        kwd: string;
+    };
+    var: {
+        kwd: string;
+    };
+    class: {
+        kwd: string;
+        constructorName: string;
+        doPrefixWithSelf?: boolean; // <- defualt: true, should we prefix methods with "self" ?
+        doPrefixMethods?: boolean; // <- defualt: true, should we prefix methods with the function kwd?
+        constructorIsAFunction?: boolean; // <- default: true, should we prefix the constructor with the function kwd?
+        callWithNew?: boolean; // <- default: false
+    };
+    extra: {
+        TemplateLiteral?: {
+            start: string;
+            end: string;
+            templateCharacter: {
+                start: string;
+                end: string;
+            };
+        };
+    };
+    file: {
+        ext: string;
+        doAddSemicolon?: boolean; // <- default: false
+        doAddBraces?: boolean; // <- default: false
+        stdlib: {
+            import: string; // <- default: pylib
+            path: string; // <- default: @archium/pylib
+            possibleNames: string[]; // <- default: ["py", "pylib"]
+        };
+        requiredReplacements: {
+            // booleans
+            true: string; // <- default: True
+            false: string; // <- default: False
+            // functions
+            "console.log": string; // <- default: print
+            this: string; // <- default: self
+            // null
+            null: string; // <- default: "None"
+            undefined: string; // <- default: "None"
+            // bad operators
+            "===": string; // <- default: ==
+            "++": string; // <- default: += 1
+            "--": string; // <- default: -= 1
+        };
+    };
+};
+
 /**
  * @function Compile
- * @description Compile TypeScript to Python
+ * @description Compile TypeScript to [language]
  *
  * @export
  * @param {string} input
@@ -27,6 +80,67 @@ const pylibFunctions = ["withStatement", "named", "nv"]; // functions exported b
  */
 export default function Compile(inputPaths: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
+        // get settings from config.compilerOptions.grammar
+        let grammarSettings: ArchiumGrammar = config.compilerOptions
+            .grammar || {
+            // python grammar
+            func: {
+                kwd: "def",
+            },
+            var: {
+                kwd: "",
+            },
+            class: {
+                kwd: "class",
+                constructorName: "__init__",
+                doPrefixWithSelf: true,
+                doPrefixMethods: true,
+                constructorIsAFunction: true,
+                callWithNew: false,
+            },
+            extra: {
+                TemplateLiteral: {
+                    start: "f'",
+                    end: "'",
+                    templateCharacter: {
+                        start: "{",
+                        end: "}",
+                    },
+                },
+            },
+            file: {
+                ext: "py",
+                doAddSemicolon: false,
+                doAddBraces: false,
+                stdlib: {
+                    import: "pylib",
+                    path: "@archium/pylib",
+                    possibleNames: ["py", "pylib"],
+                },
+                requiredReplacements: {
+                    // booleans
+                    true: "True",
+                    false: "False",
+                    // functions
+                    "console.log": "print",
+                    // null
+                    null: "None",
+                    undefined: "None",
+                    // bad operators
+                    "===": "==",
+                    "++": " += 1",
+                    "--": " -= 1",
+                },
+            },
+        };
+
+        console.log(
+            "(In Use) ArchiumGrammar: " + JSON.stringify(grammarSettings)
+        );
+
+        // these grammar settings will be used to customize the language archium-py compiles into
+
+        // ...
         let bodyIndentIndex = 0;
 
         // compile ts
@@ -35,8 +149,11 @@ export default function Compile(inputPaths: string[]): Promise<void> {
             {
                 target: ts.ScriptTarget.ES2022,
                 module: ts.ModuleKind.ES2022,
+                baseUrl: process.cwd(),
                 paths: {
-                    pylib: [`${process.cwd()}/@archium/pylib`],
+                    [grammarSettings.file.stdlib.import]: [
+                        grammarSettings.file.stdlib.path,
+                    ],
                 },
             }
         );
@@ -47,13 +164,13 @@ export default function Compile(inputPaths: string[]): Promise<void> {
          * @param {any} result
          */
         function __compile(inputPath: string, result: any) {
-            // remove py. or pylib.
-            result[0] = result[0]
-                .replaceAll("py.", "")
-                .replaceAll("pylib.", "");
+            // remove [stdlib]
+            // example: remove py. or pylib. (input: ["py", "pylib"])
+            for (let pn of grammarSettings.file.stdlib.possibleNames)
+                result[0] = result[0].replaceAll(`${pn}.`, "");
 
             // store compilation result
-            let py = "";
+            let langRes = "";
 
             // parse js
             const js = parse(result[0], {
@@ -80,6 +197,10 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                     return "";
                 }
 
+                // semicolon
+                let semi =
+                    grammarSettings.file.doAddSemicolon === true ? ";" : "";
+
                 // parse body
                 for (let node of body) {
                     // handle different types
@@ -103,15 +224,25 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                     fd_args += `${argument.name}, `;
                                 else fd_args += argument.name;
 
-                            // parse function and return python function
+                            // parse function and return [language] function
                             const __indent = "    ".repeat(bodyIndentIndex); // initial indent
 
                             bodyIndentIndex++; // increase index so function is indented properly
-                            res += `${__indent}def ${
+
+                            res += `${__indent}${grammarSettings.func.kwd} ${
                                 (node as any).id.name // <- this is the function name!
-                            }(${fd_args}):\n${parseBody(
-                                (node as any).body.body
-                            )}`;
+                            }(${fd_args})${
+                                // handle braces
+                                grammarSettings.file.doAddBraces === true
+                                    ? " {"
+                                    : ":"
+                            }\n${parseBody((node as any).body.body)}${
+                                // handle braces
+                                grammarSettings.file.doAddBraces === true
+                                    ? "}\n\n"
+                                    : ""
+                            }`;
+
                             bodyIndentIndex--; // all other nodes should get parsed before this line happens...
 
                             break;
@@ -274,17 +405,16 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
                                     // if the content starts with `, handle the TemplateLiteral
                                     if (ce_content.startsWith("`"))
-                                        // make the string start with f'
-                                        // replace ` with '
-                                        // replace ${ with {
-                                        ce_content = `f${ce_content
-                                            .replaceAll("`", "'")
-                                            .replaceAll("${", "{")}`;
+                                        ce_content =
+                                            helpers.convertTemplateLiteral(
+                                                ce_content,
+                                                grammarSettings
+                                            );
 
                                     // add to res
                                     res += `${"    ".repeat(
                                         bodyIndentIndex
-                                    )}${ce_func}(${ce_content})\n`; // <- join ce_func and ce_content
+                                    )}${ce_func}(${ce_content})${semi}\n`; // <- join ce_func and ce_content
 
                                     break;
 
@@ -301,7 +431,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                             // remove "new" so class reassignment works!
                                             "new ",
                                             ""
-                                        )}\n`;
+                                        )}${semi}\n`;
 
                                     break;
 
@@ -322,20 +452,20 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             if (_var.init)
                                 if (_var.init.arguments)
                                     for (let _vx of _var.init.arguments)
-                                        _var_args += `${_vx.raw}`;
+                                        _var.init.arguments.indexOf(_vx) !==
+                                        _var.init.arguments.length - 1
+                                            ? (_var_args += `${_vx.raw}, `) // <- not at end
+                                            : (_var_args += `${_vx.raw}`);
+                                // <- at end
                                 else undefined;
                             else _var_args = undefined;
 
                             // handle TemplateLiteral
                             if (_var.init.type === "TemplateLiteral")
-                                // use substring to get the piece of code
-                                // make the string start with f'
-                                // replace ` with '
-                                // replace ${ with {
-                                _var.init.raw = `f${result[0]
-                                    .substring(_var.init.start, _var.init.end)
-                                    .replaceAll("`", "'")
-                                    .replaceAll("${", "{")}`;
+                                _var.init.raw = helpers.convertTemplateLiteral(
+                                    _var.init.raw,
+                                    grammarSettings
+                                );
 
                             // handle ArrayExpression
                             if (_var.init.type === "ArrayExpression")
@@ -348,14 +478,35 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             if (_var.init.type === "UnaryExpression")
                                 _var.init.raw = "-" + _var.init.argument.raw;
 
-                            // add to python result
+                            // add to [language] result
                             res += `${"    ".repeat(bodyIndentIndex)}${
-                                _var.id.name
-                            } = ${
-                                // raw value OR function/class name
-                                (_var.init || { raw: "None" }).raw ||
-                                `${_var.init.callee.name}(${_var_args})`
-                            }\n`;
+                                grammarSettings.var.kwd !== ""
+                                    ? `${grammarSettings.var.kwd} ` // <- add a space to the keyword IF it isn't blank
+                                    : ""
+                            }${_var.id.name} = ${
+                                // ^ _var.id.name is the name of the variable! (it's right above this)
+                                _var.init.type !== "BinaryExpression" // <- binary expression is a little harder
+                                    ? // raw value OR function/class name
+                                      (_var.init || { raw: "None" }).raw ||
+                                      `${
+                                          // add "new" if it was there originally
+                                          grammarSettings.class.callWithNew
+                                              ? result[0]
+                                                    .substring(
+                                                        _var.init.start,
+                                                        _var.init.end
+                                                    )
+                                                    .includes("new")
+                                                  ? "new "
+                                                  : ""
+                                              : undefined // <- do nothing
+                                      }${_var.init.callee.name}(${_var_args})`
+                                    : // harder so we're just going to use substring :)
+                                      result[0].substring(
+                                          _var.init.start,
+                                          _var.init.end
+                                      )
+                            }${semi}\n`;
 
                             break;
 
@@ -376,7 +527,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
                             for (let n of cd_body) {
                                 // make sure it is a MethodDefinition, not PropertyDefinition
-                                // python doesn't support those...
+                                // [language] probably doesn't support those...
                                 if (n.type !== "MethodDefinition") continue;
                                 cd_indent = "    ".repeat(bodyIndentIndex);
 
@@ -399,9 +550,34 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                             else clc_args += argument.name;
 
                                         // add to cd_dec
-                                        cd_dec.constructorLine = `${cd_indent}def __init__(self, ${clc_args}):\n${parseBody(
-                                            n.value.body.body
-                                        )}`;
+                                        cd_dec.constructorLine = `${cd_indent}${
+                                            // handle constructorIsAFunction
+                                            grammarSettings.class
+                                                .constructorIsAFunction === true
+                                                ? `${grammarSettings.func.kwd} `
+                                                : ""
+                                        }${
+                                            grammarSettings.class
+                                                .constructorName
+                                        }(${
+                                            // handle doPrefixWithSelf
+                                            grammarSettings.class
+                                                .doPrefixWithSelf === true
+                                                ? "self, "
+                                                : ""
+                                        }${clc_args})${
+                                            // handle braces
+                                            grammarSettings.file.doAddBraces ===
+                                            true
+                                                ? " {"
+                                                : ":"
+                                        }\n${parseBody(n.value.body.body)}${
+                                            // handle braces
+                                            grammarSettings.file.doAddBraces ===
+                                            true
+                                                ? `${cd_indent}}\n\n`
+                                                : ""
+                                        }`;
 
                                         // decrease bodyIndentIndex so things go back to normal!
                                         bodyIndentIndex--;
@@ -412,7 +588,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                         bodyIndentIndex++;
 
                                         // collect arguments
-                                        const mtd_params = (n.value as any)
+                                        const mtd_params = (n.value as any) // <- method_params
                                             .params;
                                         let mtd_args = "";
 
@@ -425,11 +601,31 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                             else mtd_args += argument.name;
 
                                         // add to cd_dec
-                                        cd_dec.methods += `${cd_indent}def ${
-                                            n.key.name
-                                        }(self, ${mtd_args}):\n${parseBody(
-                                            n.value.body.body
-                                        )}\n\n`;
+                                        cd_dec.methods += `${cd_indent}${
+                                            // handle doPrefixMethods
+                                            grammarSettings.class
+                                                .doPrefixMethods === true
+                                                ? `${grammarSettings.func.kwd} `
+                                                : ""
+                                        }${n.key.name}(${
+                                            // handle doPrefixWithSelf
+                                            grammarSettings.class
+                                                .doPrefixWithSelf === true
+                                                ? "self, "
+                                                : ""
+                                        }${mtd_args})${
+                                            // handle braces
+                                            grammarSettings.file.doAddBraces ===
+                                            true
+                                                ? " {"
+                                                : ":"
+                                        }\n${parseBody(n.value.body.body)}${
+                                            // handle braces
+                                            grammarSettings.file.doAddBraces ===
+                                            true
+                                                ? `${cd_indent}}\n\n`
+                                                : ""
+                                        }\n\n`;
 
                                         // decrease bodyIndentIndex so things go back to normal!
                                         bodyIndentIndex--;
@@ -441,7 +637,17 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                 }
                             }
 
-                            res += `${cd_dec.classLine}:\n${cd_dec.constructorLine}\n\n${cd_dec.methods}`;
+                            res += `${cd_dec.classLine}${
+                                // handle braces
+                                grammarSettings.file.doAddBraces === true
+                                    ? " {"
+                                    : ":"
+                            }\n${cd_dec.constructorLine}\n\n${cd_dec.methods}${
+                                // handle braces
+                                grammarSettings.file.doAddBraces === true
+                                    ? "}\n\n"
+                                    : ""
+                            }`;
                             bodyIndentIndex--;
 
                             break;
@@ -450,8 +656,12 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                         case "ImportDeclaration":
                             const imported = (node as any).specifiers; // what are we importing?
 
-                            // ignore pylib imports
-                            if ((node as any).source.value.includes("pylib"))
+                            // ignore [stdlib] imports
+                            if (
+                                (node as any).source.value.includes(
+                                    grammarSettings.file.stdlib.import
+                                )
+                            )
                                 break;
 
                             // import declaration data
@@ -485,15 +695,16 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             }
 
                             // add imports
+                            // TODO: make this customizable in ArchiumGrammar
                             if (imp_dec.named)
                                 // named
                                 res += `from ${(
                                     node as any
                                 ).source.value.replaceAll("./", "")} import ${
                                     imp_dec.specifiersString
-                                }\n`;
+                                }${semi}\n`;
                             else
-                                res += `import ${imp_dec.mod} as ${imp_dec.specifiersString}\n`; // all
+                                res += `import ${imp_dec.mod} as ${imp_dec.specifiersString}${semi}\n`; // all
 
                             break;
 
@@ -504,6 +715,8 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             //     consequent: what happens after, we can use parseBody() on this! [2]
                             //     alternate: may not always be present, could be "else if" or just "else" [3]
                             // the use of parseBody means we need to increment the bodyIndentIndex [4]
+
+                            // TODO: make this customizable in ArchiumGrammar
                             function if_compute(n: any) {
                                 let if_res = "";
                                 const if_test = result[0].substring(
@@ -571,6 +784,8 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             //     body: the code that needs to run every time [4]
                             // the use of parseBody means we need to increment the bodyIndentIndex [5]
 
+                            // TODO: make this customizable in ArchiumGrammar
+
                             // get start value, refer to [1]
                             const fs_start_id = (node as any).init
                                 .declarations[0].id.name;
@@ -609,6 +824,8 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             //     body: the code that needs to run every time [3]
                             // the use of parseBody means we need to increment the bodyIndentIndex [4]
 
+                            // TODO: make this customizable in ArchiumGrammar
+
                             // we're basically just declaring a variable in the left side,
                             // so left.declarations[0].id.name works to get that
                             // refer to [1] and [2]
@@ -639,32 +856,64 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                 return res;
             }
 
-            py += parseBody((js as any).body)
+            langRes += parseBody((js as any).body)
                 // booleans
-                .replaceAll("true", "True")
-                .replaceAll("false", "False")
+                .replaceAll(
+                    "true",
+                    grammarSettings.file.requiredReplacements.true
+                )
+                .replaceAll(
+                    "false",
+                    grammarSettings.file.requiredReplacements.false
+                )
                 // functions
-                .replaceAll("console.log", "print")
-                .replaceAll("this", "self")
+                .replaceAll(
+                    "console.log",
+                    grammarSettings.file.requiredReplacements["console.log"]
+                )
+                .replaceAll(
+                    "this",
+                    grammarSettings.file.requiredReplacements.this
+                )
                 // null
-                .replaceAll("null", "None")
-                .replaceAll("undefined", "None")
+                .replaceAll(
+                    "null",
+                    grammarSettings.file.requiredReplacements.null
+                )
+                .replaceAll(
+                    "undefined",
+                    grammarSettings.file.requiredReplacements.undefined
+                )
                 // bad operators
-                .replaceAll("===", "==")
-                .replaceAll("++", " += 1")
-                .replaceAll("--", " -= 1");
+                .replaceAll(
+                    "===",
+                    grammarSettings.file.requiredReplacements["==="]
+                )
+                .replaceAll(
+                    "++",
+                    grammarSettings.file.requiredReplacements["++"]
+                )
+                .replaceAll(
+                    "--",
+                    grammarSettings.file.requiredReplacements["--"]
+                );
 
             // save file
-            const outDir = (config.compilerOptions || { outDir: "@archium/py" })
-                .outDir;
+            const outDir = (
+                config.compilerOptions || {
+                    outDir: `@archium/${grammarSettings.file.ext}`,
+                }
+            ).outDir;
 
             if (!fs.existsSync(outDir)) fs.mkdirSync(outDir); // <- make sure outDir exists
             fs.writeFileSync(
                 path.resolve(
                     outDir,
-                    path.basename(result[1]).replace(".js", ".py")
+                    path
+                        .basename(result[1])
+                        .replace(".js", `.${grammarSettings.file.ext}`)
                 ),
-                py
+                langRes
             );
         }
 

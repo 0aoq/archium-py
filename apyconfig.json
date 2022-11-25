@@ -1,6 +1,52 @@
 {
     "compilerOptions": {
         "outDir": "@archium/out",
-        "entry": "ts/test/index.ts"
+        "entry": "ts/test/index.ts",
+        "grammar": {
+            "func": {
+                "kwd": "function"
+            },
+            "var": {
+                "kwd": "var"
+            },
+            "class": {
+                "kwd": "class",
+                "constructorName": "constructor",
+                "doPrefixWithSelf": false,
+                "doPrefixMethods": false,
+                "constructorIsAFunction": false,
+                "callWithNew": true
+            },
+            "extra": {
+                "TemplateLiteral": {
+                    "start": "`",
+                    "end": "`",
+                    "templateCharacter": {
+                        "start": "${",
+                        "end": "}"
+                    }
+                }
+            },
+            "file": {
+                "ext": "js",
+                "doAddSemicolon": true,
+                "doAddBraces": true,
+                "stdlib": {
+                    "import": "pylib",
+                    "path": "@archium/pylib",
+                    "possibleNames": ["py", "pylib"]
+                },
+                "requiredReplacements": {
+                    "true": "true",
+                    "false": "true",
+                    "console.log": "console.log",
+                    "null": "null",
+                    "undefined": "undefined",
+                    "===": "===",
+                    "++": "++",
+                    "--": "--"
+                }
+            }
+        }
     }
 }
