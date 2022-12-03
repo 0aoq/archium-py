@@ -478,6 +478,13 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             if (_var.init.type === "UnaryExpression")
                                 _var.init.raw = "-" + _var.init.argument.raw;
 
+                            // handle ObjectExpression
+                            if (_var.init.type === "ObjectExpression")
+                                _var.init.raw = result[0].substring(
+                                    _var.init.start,
+                                    _var.init.end
+                                );
+
                             // add to [language] result
                             res += `${"    ".repeat(bodyIndentIndex)}${
                                 grammarSettings.var.kwd !== ""
