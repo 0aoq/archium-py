@@ -123,6 +123,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                     false: "False",
                     // functions
                     "console.log": "print",
+                    this: "self",
                     // null
                     null: "None",
                     undefined: "None",
@@ -506,7 +507,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                                     .includes("new")
                                                   ? "new "
                                                   : ""
-                                              : undefined // <- do nothing
+                                              : "" // <- do nothing
                                       }${_var.init.callee.name}(${_var_args})`
                                     : // harder so we're just going to use substring :)
                                       result[0].substring(

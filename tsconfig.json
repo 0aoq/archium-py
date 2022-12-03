@@ -20,5 +20,8 @@
     "exclude": [
         "./@archium",
         "./lib"
+    ],
+    "include": [
+        "./ts",
     ]
 }

@@ -1,8 +1,28 @@
-# archium-py
+# 🐍 archium-py
 
 ### **\[?] Implementation Status** https://www.oxvs.net/archive/*/@archium#file:/files/archium-py/outline.md
 
-<br>
+## Install
+
+_Install archium-py globally_
+
+**Linux:**
+
+```cmd
+sudo npm i -g archium-py
+```
+
+**Windows:**
+
+```cmd
+npm i -g archium-py
+```
+
+**Use:**
+
+After install, archium-py can be run in the current working directory by running the command `archium`.
+
+## About
 
 Archium-PY is a simple TypeScript to Python transpiler.
 

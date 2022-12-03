@@ -1,8 +1,11 @@
 {
   "name": "archium-py",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Compile TypeScript to Python",
   "main": "lib/index.js",
+  "bin": {
+    "archium": "./lib/archium-py.js"
+  },
   "scripts": {
     "build": "npx tsc",
     "build:docs": "npx typedoc",
@@ -22,5 +25,9 @@
     "acorn": "^8.8.1",
     "typescript": "^4.8.4"
   },
-  "type": "module"
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0aoq/archium-py"
+  }
 }
