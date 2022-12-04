@@ -486,6 +486,13 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                     _var.init.end
                                 );
 
+                            // handle CallExpression
+                            if (_var.init.type === "CallExpression")
+                                _var.init.raw = result[0].substring(
+                                    _var.init.start,
+                                    _var.init.end
+                                );
+
                             // add to [language] result
                             res += `${"    ".repeat(bodyIndentIndex)}${
                                 grammarSettings.var.kwd !== ""

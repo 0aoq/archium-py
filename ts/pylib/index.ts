@@ -348,12 +348,78 @@ export function min(iterable: Iterable<any>): any {}
  */
 export function next(iterable: Iterable<any>): any {}
 
+// NOT IMPLEMENTED: https://docs.python.org/3/library/functions.html#oct
+
+export type file = {
+    /**
+     * @function file.read
+     *
+     * @param {number} bytes Amount of bytes to read, optional
+     * @returns {string}
+     */
+    read: (bytes?: number) => string;
+    /**
+     * @function file.close
+     * @description Close open buffer
+     */
+    close: () => void;
+    /**
+     * @function file.readline
+     * @description Read first line of file until newline character or EOF is reached
+     *
+     * @param {number} bytes Amount of bytes to read, optional
+     * @returns {string}
+     */
+    readline: (bytes?: number) => string;
+    /**
+     * @function file.readlines
+     * @description Read the entire file line by line
+     *
+     * @returns {string[]}
+     */
+    readlines: () => string[];
+    /**
+     * @function write
+     *
+     * @param {string} data
+     * @returns {void}
+     */
+    write: (data: string) => void;
+};
+
+/**
+ * @function open
+ * @see https://docs.python.org/3/library/functions.html#open
+ *
+ * @param {string} file
+ * @param {string} mode example: "r+" for read
+ * @returns {file}
+ */
+export function open(file: string, mode: string): file {
+    return {
+        read: (bytes?: number) => {
+            return "";
+        },
+        close: () => {},
+        readline: (bytes?: number) => {
+            return "";
+        },
+        readlines: () => {
+            return [""];
+        },
+        write: (data: string) => {},
+    };
+}
+
 // ...
 export default {
     withStatement,
 
     named,
     nv,
+
+    __name__: "",
+    __file__: "",
 
     // https://docs.python.org/3/library/functions.html
     abs,
@@ -383,4 +449,5 @@ export default {
     map,
     min,
     next,
+    open,
 };
