@@ -167,8 +167,10 @@ export default function Compile(inputPaths: string[]): Promise<void> {
         function __compile(inputPath: string, result: any) {
             // remove [stdlib]
             // example: remove py. or pylib. (input: ["py", "pylib"])
-            for (let pn of grammarSettings.file.stdlib.possibleNames)
+            for (let pn of grammarSettings.file.stdlib.possibleNames) {
                 result[0] = result[0].replaceAll(`${pn}.`, "");
+                result[0] = result[0].replaceAll(`${pn}/`, "");
+            }
 
             // store compilation result
             let langRes = "";
@@ -181,6 +183,24 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
             function parseBody(body: Node[]): string {
                 let res = "";
+
+                // handle module specific imports
+
+                /**
+                 * @function searchAndEnableImport
+                 * @param {string} iden
+                 * @returns {void}
+                 */
+                function searchAndEnableImport(iden: string): void {
+                    // search result[0] for _{iden}.
+                    // add import if found
+                    if (result[0].includes(`_${iden}.`)) {
+                        res += `import ${iden}\n\n`;
+                        result[0] = result[0].replaceAll(`_${iden}`, iden); // <- remove underscore
+                    }
+                }
+
+                searchAndEnableImport("random");
 
                 // check if body exists, if not we need to stop here!
                 if (!body) {

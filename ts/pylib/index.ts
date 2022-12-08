@@ -4,6 +4,8 @@
  * @license MIT
  */
 
+import r from "./random.js";
+
 /**
  * @function withStatement
  * @description Create a Python with statement
@@ -413,6 +415,11 @@ export function open(file: string, mode: string): file {
 
 // ...
 export default {
+    // modules
+    // *prefix all with "_"
+    _random: r,
+
+    // extras ...
     withStatement,
 
     named,
