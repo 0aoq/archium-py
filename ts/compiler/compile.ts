@@ -941,12 +941,13 @@ export default function Compile(inputPaths: string[]): Promise<void> {
             ).outDir;
 
             if (!fs.existsSync(outDir)) fs.mkdirSync(outDir); // <- make sure outDir exists
+
             fs.writeFileSync(
                 path.resolve(
                     outDir,
                     path
                         .basename(result[1])
-                        .replace(".js", `.${grammarSettings.file.ext}`)
+                        .replace(".ts", `.${grammarSettings.file.ext}`)
                 ),
                 langRes
             );

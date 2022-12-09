@@ -6,7 +6,128 @@
 import path from "node:path";
 import fs from "node:fs";
 
-import ts from "typescript";
+import ts, { createCompilerHost } from "typescript";
+import { parse } from "acorn";
+
+/**
+ * @function tsc
+ * @description A much faster TypeScript compile using transpileModule
+ * @see https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API#a-simple-transform-function
+ *
+ * @param {ts.CompilerOptions} options
+ * @param {string} _path
+ * @returns {Array<[string, string]>}
+ */
+export function tsc(
+    options: ts.CompilerOptions,
+    _path: string
+): Array<[string, string]> {
+    // read file
+    const js = fs.readFileSync(_path).toString();
+
+    // parse javascript
+    const acjs = parse(js, {
+        ecmaVersion: "latest",
+        sourceType: "module",
+    });
+
+    // get imports
+    const imports = (acjs as any).body.filter((n: any) => {
+        return n.type === "ImportDeclaration";
+    });
+
+    // handle imports
+    const compilerHost = ts.createCompilerHost(options);
+    let modules = [];
+    for (let im of imports) {
+        let m = ts.resolveModuleName(
+            // typescript.d.ts#5030
+            im.source.value,
+            path.resolve(_path),
+            options,
+            compilerHost
+        );
+
+        // if m does not have a resolvedModule, attempt to resolve failedLookupLocations[0].replace(im.source.value.js, "index")
+        if (!m.resolvedModule) {
+            const testModuleName2 = (m as any).failedLookupLocations[0].replace(
+                im.source.value + ".ts",
+                "index.js"
+            );
+
+            m = ts.resolveModuleName(
+                // typescript.d.ts#5030
+                testModuleName2,
+                path.resolve(_path),
+                options,
+                compilerHost
+            );
+
+            // if m still does not have a resolvedModule, attempt to resolve dirname/im.source.value/filename
+            if (!m.resolvedModule) {
+                const testModuleName3 = `${path.dirname(testModuleName2)}/${
+                    im.source.value
+                }/${path.basename(testModuleName2)}`;
+
+                m = ts.resolveModuleName(
+                    // typescript.d.ts#5030
+                    testModuleName3,
+                    path.resolve(_path),
+                    options,
+                    compilerHost
+                );
+            }
+        }
+
+        // if it still does not have a resolvedModule, log error
+        if (!m.resolvedModule) {
+            console.log(
+                `[ts.resolveModuleName] \x1b[93m\u{1F50D} Cannot resolve module "${
+                    im.source.value
+                }"\x1b[0m\n[ts.resolveModuleName] Supplied params:\n[ts.resolveModuleName] \x1b[90m{ moduleName: "${
+                    im.source.value
+                }", containingFile: "${path.resolve(_path)}", ... }\x1b[0m`
+            );
+
+            break;
+        }
+
+        // push to modules
+        if (m.resolvedModule.resolvedFileName.includes(".js")) continue;
+        modules.push(m);
+    }
+
+    // make a variable for returnResult, we'll store transpiler results here
+    let returnResult: Array<[string, string]> = [];
+
+    // handle base module
+    const res = ts.transpileModule(js, {
+        compilerOptions: options,
+    });
+
+    returnResult.push([res.outputText, _path]);
+
+    // handle modules
+    for (let module of modules) {
+        // read file text
+        const fileText = fs
+            .readFileSync(module.resolvedModule!.resolvedFileName)
+            .toString();
+
+        // compile js
+        const res = ts.transpileModule(fileText, {
+            compilerOptions: options,
+        });
+
+        returnResult.push([
+            res.outputText,
+            module.resolvedModule!.resolvedFileName,
+        ]);
+    }
+
+    // return
+    return returnResult;
+}
 
 /**
  * @function CompileTypeScript
@@ -15,7 +136,7 @@ import ts from "typescript";
  * @export
  * @param {string[]} fileNames
  * @param {ts.CompilerOptions} options
- * @returns {Array<[string, string]>}
+ * @returns {Array<[string]>}
  */
 export default function CompileTypeScript(
     fileNames: string[],
@@ -23,51 +144,10 @@ export default function CompileTypeScript(
 ): string[][] {
     options.outDir = "tempts";
 
-    // https://github.com/Microsoft/TypeScript/wiki/Using-the-Compiler-API#a-minimal-compiler
-    let program = ts.createProgram(fileNames, options);
-    let emitResult = program.emit();
-
-    let allDiagnostics = ts
-        .getPreEmitDiagnostics(program)
-        .concat(emitResult.diagnostics);
-
-    allDiagnostics.forEach((diagnostic) => {
-        if (diagnostic.file) {
-            let { line, character } = ts.getLineAndCharacterOfPosition(
-                diagnostic.file,
-                diagnostic.start!
-            );
-
-            let message = ts.flattenDiagnosticMessageText(
-                diagnostic.messageText,
-                "\n"
-            );
-
-            console.log(
-                `${diagnostic.file.fileName} (${line + 1},${
-                    character + 1
-                }): ${message}`
-            );
-        } else {
-            console.log(
-                ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")
-            );
-        }
+    // actual return
+    return tsc(options, fileNames[0]).filter((n) => {
+        // remove unwanted
+        // no .d.ts !!!!
+        return !n[1].endsWith(".d.ts");
     });
-
-    // read result
-    let results = [];
-
-    for (let file of fs.readdirSync("tempts")) {
-        results.push([
-            fs.readFileSync(path.resolve("tempts", file)).toString(),
-            path.resolve(file),
-        ]);
-    }
-
-    // remove tempts
-    fs.rmSync("tempts", { recursive: true });
-
-    // return
-    return results;
 }

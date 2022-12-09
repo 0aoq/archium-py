@@ -1,6 +1,9 @@
 {
     "entryPoints": [
         "ts/pylib/index.ts",
+        "ts/compiler/tsc.ts",
+        "ts/compiler/helpers.ts",
+        "ts/compiler/compile.ts",
     ],
     "out": "docs"
 }

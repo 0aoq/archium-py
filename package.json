@@ -1,6 +1,6 @@
 {
   "name": "archium-py",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Compile TypeScript to Python",
   "main": "lib/index.js",
   "bin": {

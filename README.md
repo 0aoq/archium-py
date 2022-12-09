@@ -69,6 +69,6 @@ A direct path cannot be used, pylib must be imported from `pylib`. Initially run
 ## Links
 
 -   [Outline and implementation status](https://www.oxvs.net/archive/*/@archium#file:/files/archium-py/outline.md)
--   [Pylib Documentation](https://pylib.docs.oxvs.net/variables/default)
+-   [Pylib Documentation](https://pylib.docs.oxvs.net/modules/pylib)
 -   [Archium-PY Example](https://www.oxvs.net/archive/*/@archium/#file:/files/archium-py/Archium-PY%20Example%201.onb.json)
 -   [Forking Archium-PY to compile TypeScript into other languages](https://www.oxvs.net/archive/*/@archium/#file:/files/archium-py/Using%20Archium-PY%20to%20transpile%20TypeScript%20into%20other%20languages.onb.json)
