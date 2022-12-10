@@ -159,12 +159,20 @@ export default function Compile(inputPaths: string[]): Promise<void> {
             }
         );
 
+        // import modules
+        let importedCore: string[] = []; // see function: searchAndEnableImport
+
         /**
          * @function __compile
          * @param {string} inputPath
          * @param {any} result
+         * @param {boolean} isImported
          */
-        function __compile(inputPath: string, result: any) {
+        function __compile(
+            inputPath: string,
+            result: any,
+            isImported?: boolean
+        ) {
             // remove [stdlib]
             // example: remove py. or pylib. (input: ["py", "pylib"])
             for (let pn of grammarSettings.file.stdlib.possibleNames) {
@@ -195,8 +203,10 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                     // search result[0] for _{iden}.
                     // add import if found
                     if (result[0].includes(`_${iden}.`)) {
-                        res += `import ${iden}\n\n`;
-                        result[0] = result[0].replaceAll(`_${iden}`, iden); // <- remove underscore
+                        // res = `import ${iden}\n\n${res}`;
+                        // result[0] = result[0].replaceAll(`_${iden}`, iden); // <- remove underscore
+
+                        importedCore.push(iden);
                     }
                 }
 
@@ -724,6 +734,10 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                     imported.length - 1
                                 )
                                     imp_dec.specifiersString += `${_import.imported.name}, `;
+                                else if (
+                                    _import.type === "ImportDefaultSpecifier"
+                                )
+                                    imp_dec.specifiersString = "*";
                                 else
                                     imp_dec.specifiersString +=
                                         _import.imported.name;
@@ -881,6 +895,12 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
                             break;
 
+                        // export declaration
+                        case "ExportNamedDeclaration":
+                            // use parseBody on node.declaration
+                            res += parseBody([(node as any).declaration]);
+                            break;
+
                         default:
                             // log anything we don't understand
                             console.log(node);
@@ -933,6 +953,12 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                     grammarSettings.file.requiredReplacements["--"]
                 );
 
+            // load importedCore modules
+            for (let i of importedCore) {
+                langRes = `import ${i}\n\n${langRes}`;
+                langRes = langRes.replaceAll(`_${i}`, i); // <- remove underscores
+            }
+
             // save file
             const outDir = (
                 config.compilerOptions || {
@@ -942,21 +968,48 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
             if (!fs.existsSync(outDir)) fs.mkdirSync(outDir); // <- make sure outDir exists
 
-            fs.writeFileSync(
-                path.resolve(
-                    outDir,
-                    path
-                        .basename(result[1])
-                        .replace(".ts", `.${grammarSettings.file.ext}`)
-                ),
-                langRes
-            );
+            if (!isImported)
+                fs.writeFileSync(
+                    path.resolve(
+                        outDir,
+                        path
+                            .basename(result[1])
+                            .replace(".ts", `.${grammarSettings.file.ext}`)
+                    ),
+                    langRes
+                );
+            else {
+                // I'm basing all of this off https://docs.python.org/3/tutorial/modules.html#packages
+
+                // is import:
+                // create a folder named path.basename(result[1])
+                // save file as that folder/__init__.py
+
+                const saveloc =
+                    outDir +
+                    "/" +
+                    path.basename(
+                        result[1].split("." + result[1].split(".").pop())[0]
+                    );
+
+                if (!fs.existsSync(saveloc)) fs.mkdirSync(saveloc);
+
+                fs.writeFileSync(
+                    path.resolve(
+                        saveloc,
+                        `__init__.${grammarSettings.file.ext}`
+                    ),
+                    langRes
+                );
+            }
         }
 
         // start initial compilation
         for (let result in results) {
+            let imported = result === "0" ? false : true; // this will tell us if we need to save it using the module layout
+
             // we're doing this in a loop so we can compile all imports too!!!
-            __compile(inputPaths[result], results[result]);
+            __compile(inputPaths[result], results[result], imported);
         }
 
         // return

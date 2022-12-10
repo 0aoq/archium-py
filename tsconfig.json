@@ -24,5 +24,6 @@
     ],
     "include": [
         "./ts",
+        "./ts/test"
     ]
 }
