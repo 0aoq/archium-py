@@ -214,12 +214,13 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
                 // check if body exists, if not we need to stop here!
                 if (!body) {
-                    // the most common cause for this is trying to parse something doesn't use braces.
-                    // TODO: implement the ability to parse something that doesn't use braces
-                    // ex:
-                    // for (let i = 0; i < 10; i++)
-                    //     console.log(i);
-                    // ^^ MAKE THAT WORK
+                    // [RESOLVED] the most common cause for this is trying to parse something doesn't use braces.
+                    // [RESOLVED] TODO: implement the ability to parse something that doesn't use braces
+                    // [RESOLVED] ex:
+                    // [RESOLVED] for (let i = 0; i < 10; i++)
+                    // [RESOLVED]     console.log(i);
+                    // [RESOLVED] ^^ MAKE THAT WORK
+                    // update arhcium-py@1.0.4: for statements and if statements now use helpers.getBody()
 
                     console.log(
                         "\x1b[91m[ERROR]: Expected body type of Node[], but received undefined!\x1b[0m"
@@ -778,7 +779,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
                                 const if_consequent = parseBody(
                                     // ^ refer to [2]
-                                    n.consequent.body
+                                    helpers.getBody(n.consequent)
                                 );
 
                                 bodyIndentIndex--; // <- refer to [4]
@@ -804,7 +805,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                         bodyIndentIndex++; // we're increasing this because we need to do parseBody again!
 
                                         if_alternate += `${__indent}else:\n${parseBody(
-                                            n.alternate.body
+                                            helpers.getBody(n.alternate)
                                         )}`;
 
                                         bodyIndentIndex--;
@@ -856,7 +857,9 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
                             // get body, refer to [4] and [5]
                             bodyIndentIndex++;
-                            const fs_body = parseBody((node as any).body.body);
+                            const fs_body = parseBody(
+                                helpers.getBody((node as any).body)
+                            );
                             bodyIndentIndex--;
 
                             // join and add to res
@@ -885,7 +888,9 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             // get body
                             // refer to [3]
                             bodyIndentIndex++;
-                            const fis_body = parseBody((node as any).body.body);
+                            const fis_body = parseBody(
+                                helpers.getBody((node as any).body)
+                            );
                             bodyIndentIndex--;
 
                             // join them and add

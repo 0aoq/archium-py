@@ -4,6 +4,7 @@
  * @license MIT
  */
 
+import { Node } from "acorn";
 import { ArchiumGrammar } from "./compile";
 
 /**
@@ -34,7 +35,7 @@ export function useSequenceExpression(
  * @export
  * @param {string} content
  * @param {ArchiumGrammar} grammarSettings
- * @return {string}
+ * @returns {string}
  */
 export function convertTemplateLiteral(
     content: string,
@@ -84,8 +85,23 @@ export function convertTemplateLiteral(
     return content;
 }
 
+/**
+ * @function getBody
+ * @description Return the body of an expression that expects a block statement
+ *
+ * @export
+ * @param {any} node
+ * @returns {Array<node>}
+ */
+export function getBody(node: any): Array<Node> {
+    // if node.body exists, return if
+    // if not, the node is the body
+    return node.body !== undefined ? node.body : [node];
+}
+
 // default export
 export default {
     useSequenceExpression,
     convertTemplateLiteral,
+    getBody,
 };
