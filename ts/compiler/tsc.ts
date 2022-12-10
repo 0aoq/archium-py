@@ -23,7 +23,14 @@ export function tsc(
     _path: string
 ): Array<[string, string]> {
     // read file
-    const js = fs.readFileSync(_path).toString();
+    if (!fs.existsSync(_path)) {
+        console.log("Failed to compile: Entry is not a real file.");
+        process.exit(1);
+    }
+
+    const js = ts.transpileModule(fs.readFileSync(_path).toString(), {
+        compilerOptions: options,
+    }).outputText;
 
     // parse javascript
     const acjs = parse(js, {

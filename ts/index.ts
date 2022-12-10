@@ -26,7 +26,7 @@ if (!fs.existsSync("@archium")) {
 // compile test
 if (config.compilerOptions && config.compilerOptions.entry) {
     console.log(`\u{25FD} \x1b[91;1;4mArchium-PY\x1b[0m
-\x1b[93m\u{25FD} v1.0.0\x1b[0m
+\x1b[93m\u{25FD} v1.0.5\x1b[0m
 https://www.oxvs.net/archive/*/@archium/#file:/files/archium-py/outline.md
     
 \x1b[92;1m\u{25FD} You'll see debug messages appear below...\x1b[0m\x1b[92m
