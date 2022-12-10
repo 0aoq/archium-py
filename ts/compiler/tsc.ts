@@ -6,7 +6,7 @@
 import path from "node:path";
 import fs from "node:fs";
 
-import ts, { createCompilerHost } from "typescript";
+import ts from "typescript";
 import { parse } from "acorn";
 
 /**
@@ -106,9 +106,14 @@ export function tsc(
     });
 
     returnResult.push([res.outputText, _path]);
+    console.log(`(Entry ) [Reading] ${_path}`);
 
     // handle modules
     for (let module of modules) {
+        console.log(
+            `(Import) [Reading] ${module.resolvedModule!.resolvedFileName}`
+        );
+
         // read file text
         const fileText = fs
             .readFileSync(module.resolvedModule!.resolvedFileName)
