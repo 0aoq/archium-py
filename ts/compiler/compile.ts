@@ -33,6 +33,15 @@ export type ArchiumGrammar = {
         constructorIsAFunction?: boolean; // <- default: true, should we prefix the constructor with the function kwd?
         callWithNew?: boolean; // <- default: false
     };
+    if: {
+        template: string; // <- default: "if $x"
+        elseif: {
+            kwd: string; // <- default: "el" (if is added onto the end later)
+        };
+    };
+    for: {
+        template: string; // <- default: "for $startName in range($startValue, $max, $increment)"
+    };
     extra: {
         TemplateLiteral?: {
             start: string;
@@ -51,6 +60,7 @@ export type ArchiumGrammar = {
             import: string; // <- default: pylib
             path: string; // <- default: @archium/pylib
             possibleNames: string[]; // <- default: ["py", "pylib"]
+            sublibraries: string[]; // <- all sub libraries the stdlib exports (ex: ["random", "string"])
         };
         requiredReplacements: {
             // booleans
@@ -98,6 +108,16 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                 constructorIsAFunction: true,
                 callWithNew: false,
             },
+            if: {
+                template: "if $x",
+                elseif: {
+                    kwd: "el",
+                },
+            },
+            for: {
+                template:
+                    "for $startName in range($startValue, $max, $increment)",
+            },
             extra: {
                 TemplateLiteral: {
                     start: "f'",
@@ -116,6 +136,7 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                     import: "pylib",
                     path: "@archium/pylib",
                     possibleNames: ["py", "pylib"],
+                    sublibraries: ["random"],
                 },
                 requiredReplacements: {
                     // booleans
@@ -202,7 +223,10 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                 function searchAndEnableImport(iden: string): void {
                     // search result[0] for _{iden}.
                     // add import if found
-                    if (result[0].includes(`_${iden}.`)) {
+                    if (
+                        result[0].includes(`_${iden}.`) &&
+                        !importedCore.includes(iden)
+                    ) {
                         // res = `import ${iden}\n\n${res}`;
                         // result[0] = result[0].replaceAll(`_${iden}`, iden); // <- remove underscore
 
@@ -210,7 +234,8 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                     }
                 }
 
-                searchAndEnableImport("random");
+                for (let sublib of grammarSettings.file.stdlib.sublibraries)
+                    searchAndEnableImport(sublib);
 
                 // check if body exists, if not we need to stop here!
                 if (!body) {
@@ -794,7 +819,9 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                     if (n.alternate.type === "IfStatement")
                                         if_alternate += `${"    ".repeat(
                                             bodyIndentIndex
-                                        )}el${if_compute(n.alternate)}`;
+                                        )}${
+                                            grammarSettings.if.elseif.kwd
+                                        }${if_compute(n.alternate)}`;
                                     else {
                                         // ^ haha get it? we're looking at an "else" statement if we're here
                                         const __indent = "    ".repeat(
@@ -804,8 +831,12 @@ export default function Compile(inputPaths: string[]): Promise<void> {
 
                                         bodyIndentIndex++; // we're increasing this because we need to do parseBody again!
 
-                                        if_alternate += `${__indent}else:\n${parseBody(
-                                            helpers.getBody(n.alternate)
+                                        if_alternate += `${__indent}else${helpers.addBracesIfNeeded(
+                                            grammarSettings,
+                                            parseBody(
+                                                helpers.getBody(n.alternate)
+                                            ),
+                                            bodyIndentIndex
                                         )}`;
 
                                         bodyIndentIndex--;
@@ -813,7 +844,20 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                                 }
 
                                 // add to if_res, we're done!
-                                if_res += `if ${if_test}:\n${if_consequent}\n${if_alternate}`;
+
+                                // if template:
+                                //     $x  = full if statement    (if_test)
+                                const if_template =
+                                    grammarSettings.if.template.replace(
+                                        "$x",
+                                        if_test
+                                    );
+
+                                if_res += `${if_template}${helpers.addBracesIfNeeded(
+                                    grammarSettings,
+                                    if_consequent,
+                                    bodyIndentIndex
+                                )}\n${if_alternate}`;
 
                                 return if_res;
                             }
@@ -863,9 +907,25 @@ export default function Compile(inputPaths: string[]): Promise<void> {
                             bodyIndentIndex--;
 
                             // join and add to res
+
+                            // for template:
+                            //     $startName  = name of start variable    (fs_start_id)
+                            //     $startValue = value of start variable   (fs_start)
+                            //     $max        = maximum value             (fs_end)
+                            //     $increment = how much to increment by  (fs_update)
+                            const for_template = grammarSettings.for.template
+                                .replaceAll("$startName", fs_start_id)
+                                .replaceAll("$startValue", fs_start)
+                                .replaceAll("$max", fs_end)
+                                .replaceAll("$increment", fs_update);
+
                             res += `${"    ".repeat(
                                 bodyIndentIndex
-                            )}for ${fs_start_id} in range(${fs_start}, ${fs_end}, ${fs_update}):\n${fs_body}\n`;
+                            )}${for_template}${helpers.addBracesIfNeeded(
+                                grammarSettings,
+                                fs_body,
+                                bodyIndentIndex
+                            )}`;
 
                             break;
 

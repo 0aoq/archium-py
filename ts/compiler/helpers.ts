@@ -99,9 +99,35 @@ export function getBody(node: any): Array<Node> {
     return node.body !== undefined ? node.body : [node];
 }
 
+/**
+ * @function addBracesIfNeeded
+ *
+ * @export
+ * @param {ArchiumGrammar} grammarSettings
+ * @param {string} body
+ * @param {number} indentLevel
+ * @returns {string}
+ */
+export function addBracesIfNeeded(
+    grammarSettings: ArchiumGrammar,
+    body: string,
+    indentLevel: number
+): string {
+    return `${
+        // handle braces
+        grammarSettings.file.doAddBraces === true ? " {" : ":"
+    }\n${body}\n${
+        // handle braces
+        grammarSettings.file.doAddBraces === true
+            ? `${"    ".repeat(indentLevel)}}`
+            : ""
+    }`;
+}
+
 // default export
 export default {
     useSequenceExpression,
     convertTemplateLiteral,
     getBody,
+    addBracesIfNeeded,
 };

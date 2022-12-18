@@ -1,0 +1,57 @@
+{
+    "func": {
+        "kwd": "function"
+    },
+    "var": {
+        "kwd": "let"
+    },
+    "class": {
+        "kwd": "class",
+        "constructorName": "constructor",
+        "doPrefixWithSelf": false,
+        "doPrefixMethods": false,
+        "constructorIsAFunction": true,
+        "callWithNew": true
+    },
+    "if": {
+        "template": "if ($x)",
+        "elseif": {
+            "kwd": "else "
+        }
+    },
+    "for": {
+        "template": "for (let $startName = $startValue; $startName < $max; $startName += $increment)"
+    },
+    "extra": {
+        "TemplateLiteral": {
+            "start": "`",
+            "end": "`",
+            "templateCharacter": {
+                "start": "${",
+                "end": "}"
+            }
+        }
+    },
+    "file": {
+        "ext": "js",
+        "doAddSemicolon": true,
+        "doAddBraces": true,
+        "stdlib": {
+            "import": "",
+            "path": "",
+            "possibleNames": ["NO_STANDARD_LIBRARY_DEFINED"],
+            "sublibraries": []
+        },
+        "requiredReplacements": {
+            "true": "true",
+            "false": "false",
+            "console.log": "console.log",
+            "this": "this",
+            "null": "null",
+            "undefined": "undefined",
+            "===": "===",
+            "++": "++",
+            "--": "--"
+        }
+    }
+}
